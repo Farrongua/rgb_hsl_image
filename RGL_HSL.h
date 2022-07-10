@@ -11,7 +11,7 @@ namespace graphics {
 	typedef struct {
 		double h; //Hue defines the color itself, for example, 
 				  //red in distinction to blue or yellow.
-				  //The values for the hue axis run from 0â€“360Â°
+				  //The values for the hue axis run from 0–360°
 		double s; //Saturation indicates the degree to which 
 				  //the hue differs from a neutral gray. The values run from
 				  //0 %, which is no color saturation, to 100 %
