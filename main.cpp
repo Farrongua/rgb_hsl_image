@@ -13,7 +13,7 @@ int main() {
 	
     //grayscale(image);
 
-	image.writeToFile("transforme.ppm");
+	image.writeToFile("transforme.png");
     
 	
 

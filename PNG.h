@@ -8,17 +8,28 @@ using namespace std;
 
 namespace graphics {
 
-	class CHUNK {
+	class Chunk {
 	public:
-		uint32_t length;
-		uint8_t* chunk_type;
+		uint32_t length, size;
+		uint8_t* type;
 		uint8_t* data;
 		uint32_t crc;
 
 		
 
-		//CHUNK() : length(0), chunk_type({}), data({}) {};
-		CHUNK(uint32_t len, uint8_t* type, uint8_t* data, uint32_t crc) : length(len), chunk_type(type), data(data), crc(crc) {};
+		Chunk() : length(0), size(0), type(nullptr), data(nullptr), crc(0) {};
+		Chunk(uint32_t len, uint32_t size, uint8_t* _type, uint8_t* _data, uint32_t crc)
+			: length(len), size(size), data(data), crc(crc) 
+		{
+			type = new uint8_t[4];
+			for (size_t i = 0; i < 4; i++) {
+				type[i] = _type[i];
+			}
+			data = new uint8_t[size];
+			for (size_t i = 0; i < size; i++) {
+				data[i] = _data[i];
+			}
+		};
 		//uint32_t& length() { return length; }
 
 
@@ -28,9 +39,9 @@ namespace graphics {
 
 	class PNG {
 	private:
-		const uint8_t png_file_sig[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
+		uint8_t png_file_sig[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
 
-		//vector<CHUNK> chunks;
+		vector<Chunk> chunks;
 		unsigned int width;
 		unsigned int height;
 

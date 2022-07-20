@@ -73,10 +73,14 @@ unsigned long crc(unsigned char* buf, int len)
 
 
 void read_buf(std::ifstream &input_file, void* buf, size_t buf_size) {
-
     input_file.read(reinterpret_cast<char*>(buf), buf_size);
 
 }
+
+void write_buf(std::ofstream& output_file, void* buf, size_t buf_size) {
+    output_file.write(reinterpret_cast<char*>(buf), buf_size);
+}
+
 
 void print_bytes(uint8_t* buf, size_t buf_size) {
     for (size_t i = 0; i < buf_size; i++) {
@@ -111,37 +115,29 @@ namespace graphics {
     }
 
 
-    void CHUNK::print_chunk() {
-        std::cout << "Chunk lenght : ";
-        printf("%u \n", length);
-        std::cout << "Chunk type : ";
-        printf("%.*s \n", sizeof(chunk_type), chunk_type);
-        std::cout << "Chunk data : ";
-        print_bytes(data, length);
-        std::cout << "Chunk CRC : ";
-        printf("0x%08X\n|---------------------------------------------------|\n\n", crc);
+    void Chunk::print_chunk() {
+        printf("Chunk size : %u \n", size);
+        printf("Chunk type : %.*s (0x%08X)\n", (int)sizeof(type), type, *(uint32_t*)type);
+        printf("Chunk CRC : 0x%08X\n|---------------------------------------------------|\n\n", crc);
     }
+
 
     void PNG::readFromFile(const char* filename) {
         delete[] imageData;
 
         make_crc_table();
 
-        FILE* input = fopen(filename, "rb");
-
         std::ifstream input_file;
-
         input_file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-
         try {
             input_file.open(filename, ios::binary);
         }
         catch (std::system_error& e) {
             std::cerr << e.code().message() << std::endl;
+            exit(1);
         }
-        uint8_t png_sig[8];
-        //unsigned char size_buf[8];  
-        
+
+        uint8_t png_sig[8]; 
         read_buf(input_file, png_sig, 8);
         
         if (memcmp(png_sig, png_file_sig, 8) != 0) {
@@ -150,59 +146,55 @@ namespace graphics {
         }
         printf("Signature PNG : ");
         print_bytes(png_sig, sizeof(png_sig));
-        //CHUNK ch;
         bool quit = false;
         while (!quit) {
 
-            uint32_t chunk_size;
+            uint32_t chunk_size, correct_size;
             read_buf(input_file, &chunk_size, sizeof(chunk_size));
-            reverse_bytes(&chunk_size, sizeof(chunk_size));
-            
+            correct_size = chunk_size;
+            reverse_bytes(&correct_size, sizeof(correct_size));
 
             uint8_t chunk_type[4];
-            read_buf(input_file, &chunk_type, sizeof(chunk_type));
-
+            read_buf(input_file, &chunk_type, sizeof(chunk_type));      
             if (*(uint32_t*)chunk_type == 0x444E4549)
-                quit = true;
-
-
-            
-            input_file.seekg(chunk_size, input_file.cur);
-            int tell = input_file.tellg();
-            if ( tell < 0 ) {
-                exit(1);
-            }
-            
-
-           /* uint8_t* sz_buf = new uint8_t[chunk_size];
-            read_buf(input_file, sz_buf, chunk_size);
-            printf("Chunk's data : ");
-            print_bytes(sz_buf, chunk_size);*/
-
-
-
+                quit = true;   
+            uint8_t* chunk_data = new uint8_t[correct_size];
+            read_buf(input_file, chunk_data, correct_size);
             uint32_t chunk_crc;
             read_buf(input_file, &chunk_crc, sizeof(chunk_crc));
 
-            /*CHUNK chunk(chunk_size, chunk_type, sz_buf, chunk_crc);
-            chunk.print_chunk();*/
-
-            /*delete[] sz_buf;*/
-
-            printf("Chunk size : %u \n", chunk_size);
-            printf("Chunk type : %.*s (0x%08X)\n", (int)sizeof(chunk_type), chunk_type, *(uint32_t*)chunk_type);
-            printf("Chunk CRC : 0x%08X\n|---------------------------------------------------|\n\n", chunk_crc);
-            
+            chunks.push_back(Chunk(chunk_size, correct_size, chunk_type, chunk_data, chunk_crc));
+           
+            delete[] chunk_data;
         }
-        /*uint8_t what[2];
-        read_buf(input_file, what, sizeof(what));
-        if (what[1] == 6)
-            printf("ITS RGBA COLOR TYPE AND WE HAVE %.lf COLORS\n", pow(2, (int)what[0]));
-        print_bytes(what, sizeof(what));*/
-
-
+        for (size_t i = 0; i < chunks.size(); i++) {
+            chunks[i].print_chunk();
+        }
+        input_file.close();
     }
+
     void PNG::writeToFile(string const& filename) {
+        make_crc_table();
+
+        std::ofstream output_file;
+        output_file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+        try {
+            output_file.open(filename, ios::out | ios::binary);
+        }
+        catch (std::system_error& e) {
+            std::cerr << e.code().message() << std::endl;
+        }
+
+        output_file.write(reinterpret_cast<char*>(png_file_sig), 8);
+
+        for (size_t i = 0; i < chunks.size(); i++) {
+            output_file.write(reinterpret_cast<char*>(&chunks[i].length), sizeof(chunks[i].length));
+            output_file.write(reinterpret_cast<char*>(chunks[i].type), sizeof(chunks[i].type));
+            output_file.write(reinterpret_cast<char*>(chunks[i].data), chunks[i].size);
+            output_file.write(reinterpret_cast<char*>(&chunks[i].crc), sizeof(chunks[i].crc));
+        }
+        write_buf(output_file, png_file_sig, 8);
+        output_file.close();
 
     }
 
@@ -222,103 +214,10 @@ namespace graphics {
         if (y > height) {
             //error
         }
-        
+
         unsigned index = x + (y * width);
         return imageData[index];
     }
-
-
-
-    //void PNG::readFromFile(string const& filename) {
-
-    //    delete[] imageData;
-
-    //    fstream image;
-    //    image.open(filename);
-    //    string type = "", width_ = "", height_ = "", RGB = "";
-    //    image >> type;
-    //    image >> width_;
-    //    image >> height_;
-    //    image >> RGB;
-
-    //    width = stoi(width_);
-    //    height = stoi(height_);
-    //    imageData = new HSLAPixel[width * height];
-
-    //    vector<unsigned char> byteData;
-    //    string red = "", green = "", blue = "", alpha = "";
-    //    unsigned r = 0, g = 0, b = 0, a = 0;
-    //    unsigned i = 0;
-    //    while (!image.eof()) {
-
-    //        image >> red;
-    //        image >> green;
-    //        image >> blue;
-    //        //image >> alpha;
-
-    //        stringstream redstream(red);
-    //        stringstream greenstream(green);
-    //        stringstream bluestream(blue);
-    //        //stringstream alphastream(alpha);
-
-    //        redstream >> r;
-    //        greenstream >> g;
-    //        bluestream >> b;
-    //        //alphastream >> a;
-
-    //        rgbaColor rgb;
-    //        rgb.r = r;
-    //        rgb.g = g;
-    //        rgb.b = b;
-    //        rgb.a = a;
-
-    //        hslaColor hsl = RGB_TO_HSL(rgb);
-    //        HSLAPixel& pixel = imageData[i / 4];
-    //        pixel.h = hsl.h;
-    //        pixel.s = hsl.s;
-    //        pixel.l = hsl.l;
-    //        pixel.a = hsl.a;
-    //        i += 4;
-    //    }
-
-
-
-    //    image.close();
-
-
-
-    //}
-
-    //void PNG::writeToFile(string const& filename) {
-    //    unsigned char* byteData = new unsigned char[width * height * 4];
-
-    //    ofstream image(filename);
-    //    image << "P3" << endl;
-    //    image << width << " " << height << endl;
-    //    image << "255" << endl;
-
-    //    for (unsigned i = 0; i < width * height; i++) {
-    //        hslaColor hsl;
-    //        hsl.h = imageData[i].h;
-    //        hsl.s = imageData[i].s;
-    //        hsl.l = imageData[i].l;
-    //        hsl.a = imageData[i].a;
-
-    //        rgbaColor rgb = HSL_TO_RBG(hsl);
-
-    //        byteData[(i * 4)] = rgb.r;
-    //        byteData[(i * 4) + 1] = rgb.g;
-    //        byteData[(i * 4) + 2] = rgb.b;
-    //        byteData[(i * 4) + 3] = rgb.a;
-
-    //        image << to_string(rgb.r) << " " << to_string(rgb.g) << " "
-    //            << to_string(rgb.b) << " ";       //<< to_string(rgb.a) << " ";
-
-
-    //    }
-    //}
-
-
 
 
 }
