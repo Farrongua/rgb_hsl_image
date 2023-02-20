@@ -16,8 +16,9 @@ namespace graphics {
 		uint32_t crc;
 
 		
-
+		//Create empty chunk
 		Chunk() : length(0), size(0), type(nullptr), data(nullptr), crc(0) {};
+		//Create chunk whith all data
 		Chunk(uint32_t len, uint32_t size, uint8_t* _type, uint8_t* _data, uint32_t crc)
 			: length(len), size(size), data(data), crc(crc) 
 		{
@@ -30,10 +31,14 @@ namespace graphics {
 				data[i] = _data[i];
 			}
 		};
-		//uint32_t& length() { return length; }
 
 
 		void print_chunk();
+		
+		~Chunk() {
+			delete[] type;
+			delete[] data;
+		}
 	};
 
 
@@ -63,6 +68,8 @@ namespace graphics {
 		unsigned int height_() const;
 
 		HSLAPixel& getPixel(unsigned int x, unsigned int y) const;
+
+		~PNG() { delete[] imageData; }
 	};
 
 

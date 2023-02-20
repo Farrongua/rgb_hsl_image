@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <bitset>
 #include <sstream>
 #include <string>
 #include <iostream>
@@ -158,13 +159,23 @@ namespace graphics {
             read_buf(input_file, &chunk_type, sizeof(chunk_type));      
             if (*(uint32_t*)chunk_type == 0x444E4549)
                 quit = true;   
+
             uint8_t* chunk_data = new uint8_t[correct_size];
             read_buf(input_file, chunk_data, correct_size);
             uint32_t chunk_crc;
             read_buf(input_file, &chunk_crc, sizeof(chunk_crc));
 
             chunks.push_back(Chunk(chunk_size, correct_size, chunk_type, chunk_data, chunk_crc));
-           
+            if (*(uint32_t*)chunk_type == 0x52444849) {
+                width = (chunk_data[0] << 24) | (chunk_data[1] << 16) | (chunk_data[2] << 8) | (chunk_data[3] << 0);
+                height = (chunk_data[4] << 24) | (chunk_data[5] << 16) | (chunk_data[6] << 8) | (chunk_data[7] << 0);
+            }
+
+            if (*(uint32_t*)chunk_type == 0x54414449) {
+                cout << bitset<8>(chunk_data[0]) << endl;
+                cout << bitset<8>(chunk_data[1]) << endl;
+            }
+
             delete[] chunk_data;
         }
         for (size_t i = 0; i < chunks.size(); i++) {
@@ -189,9 +200,31 @@ namespace graphics {
 
         for (size_t i = 0; i < chunks.size(); i++) {
             output_file.write(reinterpret_cast<char*>(&chunks[i].length), sizeof(chunks[i].length));
+
+            
+
             output_file.write(reinterpret_cast<char*>(chunks[i].type), sizeof(chunks[i].type));
             output_file.write(reinterpret_cast<char*>(chunks[i].data), chunks[i].size);
             output_file.write(reinterpret_cast<char*>(&chunks[i].crc), sizeof(chunks[i].crc));
+
+            //if (*(uint32_t*)chunks[i].type == 0x52444849) {
+            //    uint32_t injected_sz = 3;
+            //    reverse_bytes(&injected_sz, sizeof(injected_sz));
+            //    //write_bytes_or_panic(output_file, &injected_sz, sizeof(injected_sz));
+            //    output_file.write(reinterpret_cast<char*>(&injected_sz), sizeof(injected_sz));
+            //    reverse_bytes(&injected_sz, sizeof(injected_sz));
+            //    const char* injected_type = "HUYi";
+            //    //write_bytes_or_panic(output_file, injected_type, 4);
+            //    output_file.write(injected_type, 4);
+            //    //write_bytes_or_panic(output_file, "YEP", injected_sz);
+            //    output_file.write("YEP", injected_sz);
+            //    uint32_t injected_crc = 0;//crc("YEP", injected_sz);
+            //    //write_bytes_or_panic(output_file, &injected_crc, sizeof(injected_crc));
+            //    output_file.write(reinterpret_cast<char*>(&injected_crc), sizeof(injected_crc));
+            //}
+
+
+
         }
         write_buf(output_file, png_file_sig, 8);
         output_file.close();
